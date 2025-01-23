@@ -2,7 +2,6 @@
 This module contains the Result class for storing and
 reporting the results of a full pulse control optimization run.
 """
-import jaxlib
 import pickle
 import textwrap
 import numpy as np
@@ -10,6 +9,12 @@ from inspect import signature
 import warnings
 
 import qutip as qt
+
+try:
+    import jaxlib
+    _jitfun_type = jaxlib.xla_extension.PjitFunction
+except ImportError:
+    _jitfun_type = None
 
 __all__ = ["Result"]
 
@@ -331,8 +336,10 @@ class Result:
                 evo_time = self.time_interval.evo_time
 
             # choose solver method based on type of control function
-            if isinstance(
-                self.objectives[0].H[1][1], jaxlib.xla_extension.PjitFunction
+            # if jax is installed, _jitfun_type is set to
+            # jaxlib.xla_extension.PjitFunction, otherwise it is None
+            if _jitfun_type is not None and isinstance(
+                self.objectives[0].H[1][1], _jitfun_type
             ):
                 method = "diffrax"  # for JAX defined contols
             else:

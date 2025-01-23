@@ -5,8 +5,13 @@ Tests for PSU, SU and TRACEDIFF fidelity types.
 import pytest
 import qutip as qt
 import numpy as np
-import jax.numpy as jnp
 import collections
+
+try:
+    import jax.numpy as jnp
+    _jax_available = True
+except ImportError:
+    _jax_available = False
 
 from qutip_qoc.pulse_optim import optimize_pulses
 from qutip_qoc.objective import Objective
@@ -108,55 +113,64 @@ TRCDIFF_map = PSU_unitary._replace(
     algorithm_kwargs={"alg": "GOAT", "fid_type": "TRACEDIFF"},
 )
 
-# ----------------------- System and JAX Control ---------------------
+if _jax_available:
+    # ----------------------- System and JAX Control ---------------------
 
 
-def sin_jax(t, p):
-    return p[0] * jnp.sin(p[1] * t + p[2])
+    def sin_jax(t, p):
+        return p[0] * jnp.sin(p[1] * t + p[2])
 
 
-Hc_jax = [
-    [qt.sigmax(), lambda t, p: sin_jax(t, p)],
-    [qt.sigmay(), lambda t, q: sin_jax(t, q)],
-]
+    Hc_jax = [
+        [qt.sigmax(), lambda t, p: sin_jax(t, p)],
+        [qt.sigmay(), lambda t, q: sin_jax(t, q)],
+    ]
 
-H_jax = H_d + Hc_jax
+    H_jax = H_d + Hc_jax
 
-# ------------------------------- Objective -------------------------------
+    # ------------------------------- Objective -------------------------------
 
-# state to state transfer
-PSU_state2state_jax = PSU_state2state._replace(
-    objectives=[Objective(initial, H_jax, (-1j) * initial)],
-    algorithm_kwargs={"alg": "JOPT"},
-)
+    # state to state transfer
+    PSU_state2state_jax = PSU_state2state._replace(
+        objectives=[Objective(initial, H_jax, (-1j) * initial)],
+        algorithm_kwargs={"alg": "JOPT"},
+    )
 
-SU_state2state_jax = SU_state2state._replace(
-    objectives=[Objective(initial, H_jax, initial)], algorithm_kwargs={"alg": "JOPT"}
-)
+    SU_state2state_jax = SU_state2state._replace(
+        objectives=[Objective(initial, H_jax, initial)], algorithm_kwargs={"alg": "JOPT"}
+    )
 
 
-# unitary gate synthesis
-PSU_unitary_jax = PSU_unitary._replace(
-    objectives=[Objective(initial_U, H_jax, (-1j) * initial_U)],
-    algorithm_kwargs={"alg": "JOPT"},
-)
+    # unitary gate synthesis
+    PSU_unitary_jax = PSU_unitary._replace(
+        objectives=[Objective(initial_U, H_jax, (-1j) * initial_U)],
+        algorithm_kwargs={"alg": "JOPT"},
+    )
 
-SU_unitary_jax = SU_unitary._replace(
-    objectives=[Objective(initial_U, H_jax, initial_U)],
-    algorithm_kwargs={"alg": "JOPT"},
-)
+    SU_unitary_jax = SU_unitary._replace(
+        objectives=[Objective(initial_U, H_jax, initial_U)],
+        algorithm_kwargs={"alg": "JOPT"},
+    )
 
-# map synthesis
-Lc_jax = [
-    [qt.liouvillian(qt.sigmax()), lambda t, p: sin_jax(t, p)],
-    [qt.liouvillian(qt.sigmay()), lambda t, q: sin_jax(t, q)],
-]
-L_jax = L_d + Lc_jax
+    # map synthesis
+    Lc_jax = [
+        [qt.liouvillian(qt.sigmax()), lambda t, p: sin_jax(t, p)],
+        [qt.liouvillian(qt.sigmay()), lambda t, q: sin_jax(t, q)],
+    ]
+    L_jax = L_d + Lc_jax
 
-TRCDIFF_map_jax = TRCDIFF_map._replace(
-    objectives=[Objective(initial_map, L_jax, initial_map)],
-    algorithm_kwargs={"alg": "JOPT", "fid_type": "TRACEDIFF"},
-)
+    TRCDIFF_map_jax = TRCDIFF_map._replace(
+        objectives=[Objective(initial_map, L_jax, initial_map)],
+        algorithm_kwargs={"alg": "JOPT", "fid_type": "TRACEDIFF"},
+    )
+
+else:
+    # jax not available, set these to none so tests will be skipped
+    PSU_state2state_jax = None
+    SU_state2state_jax = None
+    PSU_unitary_jax = None
+    SU_unitary_jax = None
+    TRCDIFF_map_jax = None
 
 
 @pytest.fixture(
@@ -182,6 +196,9 @@ def tst(request):
 
 
 def test_optimize_pulses(tst):
+    if tst is None:
+        pytest.skip("JAX not available")
+
     result = optimize_pulses(
         tst.objectives,
         tst.control_parameters,

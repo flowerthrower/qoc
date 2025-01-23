@@ -5,9 +5,21 @@ Test all algorithms to return a proper Result object.
 import pytest
 import qutip as qt
 import numpy as np
-import jax
-import jax.numpy as jnp
 import collections
+
+try:
+    import jax
+    import jax.numpy as jnp
+    _jax_available = True
+except ImportError:
+    _jax_available = False
+
+try:
+    import gymnasium
+    import stable_baselines3
+    _rl_available = True
+except ImportError:
+    _rl_available = False
 
 from qutip_qoc.pulse_optim import optimize_pulses
 from qutip_qoc.objective import Objective
@@ -84,37 +96,42 @@ state2state_param_crab = state2state_goat._replace(
     objectives=[Objective(initial, H, target)],
     algorithm_kwargs={"alg": "CRAB", "fid_err_targ": 0.01},
 )
-# ----------------------- JAX ---------------------
+
+if _jax_available:
+    # ----------------------- JAX ---------------------
 
 
-def sin_jax(t, p):
-    return p[0] * jnp.sin(p[1] * t + p[2])
+    def sin_jax(t, p):
+        return p[0] * jnp.sin(p[1] * t + p[2])
 
 
-@jax.jit
-def sin_x_jax(t, p, **kwargs):
-    return sin_jax(t, p)
+    @jax.jit
+    def sin_x_jax(t, p, **kwargs):
+        return sin_jax(t, p)
 
 
-@jax.jit
-def sin_y_jax(t, q, **kwargs):
-    return sin_jax(t, q)
+    @jax.jit
+    def sin_y_jax(t, q, **kwargs):
+        return sin_jax(t, q)
 
 
-@jax.jit
-def sin_z_jax(t, r, **kwargs):
-    return sin_jax(t, r)
+    @jax.jit
+    def sin_z_jax(t, r, **kwargs):
+        return sin_jax(t, r)
 
 
-Hc_jax = [[qt.sigmax(), sin_x_jax], [qt.sigmay(), sin_y_jax], [qt.sigmaz(), sin_z_jax]]
+    Hc_jax = [[qt.sigmax(), sin_x_jax], [qt.sigmay(), sin_y_jax], [qt.sigmaz(), sin_z_jax]]
 
-H_jax = H_d + Hc_jax
+    H_jax = H_d + Hc_jax
 
-# state to state transfer
-state2state_jax = state2state_goat._replace(
-    objectives=[Objective(initial, H_jax, target)],
-    algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
-)
+    # state to state transfer
+    state2state_jax = state2state_goat._replace(
+        objectives=[Objective(initial, H_jax, target)],
+        algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
+    )
+
+else:
+    state2state_jax = None
 
 
 # ------------------- discrete CRAB / GRAPE  control ------------------------
@@ -152,51 +169,56 @@ state2state_crab = state2state_goat._replace(
     algorithm_kwargs={"alg": "CRAB", "fid_err_targ": 0.01, "fix_frequency": False},
 )
 
-# ----------------------- RL --------------------
+if _rl_available:
+    # ----------------------- RL --------------------
 
-# state to state transfer
-initial = qt.basis(2, 0)
-target = (qt.basis(2, 0) + qt.basis(2, 1)).unit()  # |+⟩
+    # state to state transfer
+    initial = qt.basis(2, 0)
+    target = (qt.basis(2, 0) + qt.basis(2, 1)).unit()  # |+⟩
 
-H_c = [qt.sigmax(), qt.sigmay(), qt.sigmaz()]  # control Hamiltonians
+    H_c = [qt.sigmax(), qt.sigmay(), qt.sigmaz()]  # control Hamiltonians
 
-w, d, y = 0.1, 1.0, 0.1
-H_d = 1 / 2 * (w * qt.sigmaz() + d * qt.sigmax())  # drift Hamiltonian
+    w, d, y = 0.1, 1.0, 0.1
+    H_d = 1 / 2 * (w * qt.sigmaz() + d * qt.sigmax())  # drift Hamiltonian
 
-H = [H_d] + H_c  # total Hamiltonian
+    H = [H_d] + H_c  # total Hamiltonian
 
-state2state_rl = Case(
-    objectives=[Objective(initial, H, target)],
-    control_parameters={
-        "p": {"bounds": [(-13, 13)]},
-    },
-    tlist=np.linspace(0, 10, 100),
-    algorithm_kwargs={
-        "fid_err_targ": 0.01,
-        "alg": "RL",
-        "max_iter": 20000,
-        "shorter_pulses": True,
-    },
-    optimizer_kwargs={},
-)
+    state2state_rl = Case(
+        objectives=[Objective(initial, H, target)],
+        control_parameters={
+            "p": {"bounds": [(-13, 13)]},
+        },
+        tlist=np.linspace(0, 10, 100),
+        algorithm_kwargs={
+            "fid_err_targ": 0.01,
+            "alg": "RL",
+            "max_iter": 20000,
+            "shorter_pulses": True,
+        },
+        optimizer_kwargs={},
+    )
 
-# no big difference for unitary evolution
+    # no big difference for unitary evolution
 
-initial = qt.qeye(2)  # Identity
-target = qt.gates.hadamard_transform()
+    initial = qt.qeye(2)  # Identity
+    target = qt.gates.hadamard_transform()
 
-unitary_rl = state2state_rl._replace(
-    objectives=[Objective(initial, H, target)],
-    control_parameters={
-        "p": {"bounds": [(-13, 13)]},
-    },
-    algorithm_kwargs={
-        "fid_err_targ": 0.01,
-        "alg": "RL",
-        "max_iter": 300,
-        "shorter_pulses": True,
-    },
-)
+    unitary_rl = state2state_rl._replace(
+        objectives=[Objective(initial, H, target)],
+        control_parameters={
+            "p": {"bounds": [(-13, 13)]},
+        },
+        algorithm_kwargs={
+            "fid_err_targ": 0.01,
+            "alg": "RL",
+            "max_iter": 300,
+            "shorter_pulses": True,
+        },
+    )
+
+else: # skip RL tests
+    state2state_rl = None
+    unitary_rl = None
 
 
 @pytest.fixture(
@@ -215,6 +237,9 @@ def tst(request):
 
 
 def test_optimize_pulses(tst):
+    if tst is None:
+        pytest.skip("Dependency not available")
+
     result = optimize_pulses(
         tst.objectives,
         tst.control_parameters,

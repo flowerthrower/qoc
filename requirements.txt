@@ -1,11 +1,6 @@
 cython>=1.0
 numpy>=1.16.6,<2.0
 scipy>=1.10.1
-jax==0.4.28
-jaxlib==0.4.28
 qutip>=5.0.1
 qutip-qtrl
-qutip-jax
 pre-commit
-gymnasium>=0.29.1
-stable-baselines3>=2.3.2

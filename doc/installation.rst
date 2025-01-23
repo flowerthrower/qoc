@@ -23,7 +23,19 @@ In particular, the following packages are necessary for running ``qutip-qoc``:
 
 .. code-block:: bash
 
-    numpy scipy jax jaxlib cython qutip qutip-jax qutip-qtrl
+    numpy scipy cython qutip qutip-qtrl
+
+The following packages are required for using the JOPT algorithm:
+
+.. code-block:: bash
+
+    jax jaxlib qutip-jax
+
+The following packages are required for the RL (reinforcement learning) algorithm:
+
+.. code-block:: bash
+
+    gymnasium stable-baselines3
 
 The following package is used for testing:
 

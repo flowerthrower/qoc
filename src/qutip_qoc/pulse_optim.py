@@ -10,7 +10,12 @@ import qutip_qtrl.pulseoptim as cpo
 
 from qutip_qoc._optimizer import _global_local_optimization
 from qutip_qoc._time import _TimeInterval
-from qutip_qoc._rl import _RL
+
+try:
+    from qutip_qoc._rl import _RL
+    _rl_available = True
+except ImportError:
+    _rl_available = False
 
 __all__ = ["optimize_pulses"]
 
@@ -353,6 +358,12 @@ def optimize_pulses(
             qtrl_optimizers.append(qtrl_optimizer)
 
     elif alg == "RL":
+        if not _rl_available:
+            raise ImportError(
+                "The required dependencies (gymnasium, stable-baselines3) for "
+                "the reinforcement learning algorithm are not available."
+            )
+
         rl_env = _RL(
             objectives,
             control_parameters,

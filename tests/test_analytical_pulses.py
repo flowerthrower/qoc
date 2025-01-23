@@ -4,10 +4,15 @@ Tests for GOAT and JOPT algorithms.
 
 import pytest
 import qutip as qt
-import qutip_jax  # noqa: F401
 import numpy as np
-import jax.numpy as jnp
 import collections
+
+try:
+    import jax.numpy as jnp
+    import qutip_jax  # noqa: F401
+    _jax_available = True
+except ImportError:
+    _jax_available = False
 
 from qutip_qoc.pulse_optim import optimize_pulses
 from qutip_qoc.objective import Objective
@@ -139,52 +144,59 @@ mapping = Case(
 )
 
 
-# ----------------------- System and JAX Control ---------------------
+if _jax_available:
+    # ----------------------- System and JAX Control ---------------------
 
 
-def sin_jax(t, p):
-    return p[0] * jnp.sin(p[1] * t + p[2])
+    def sin_jax(t, p):
+        return p[0] * jnp.sin(p[1] * t + p[2])
 
 
-Hc_jax = [
-    [qt.sigmax(), lambda t, p: sin_jax(t, p)],
-    [qt.sigmay(), lambda t, q: sin_jax(t, q)],
-]
+    Hc_jax = [
+        [qt.sigmax(), lambda t, p: sin_jax(t, p)],
+        [qt.sigmay(), lambda t, q: sin_jax(t, q)],
+    ]
 
-H_jax = H_d + Hc_jax
+    H_jax = H_d + Hc_jax
 
-# ------------------------------- Objective -------------------------------
+    # ------------------------------- Objective -------------------------------
 
-# state to state transfer
-state2state_jax = state2state._replace(
-    objectives=[Objective(initial, H_jax, target)],
-    algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
-)
+    # state to state transfer
+    state2state_jax = state2state._replace(
+        objectives=[Objective(initial, H_jax, target)],
+        algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
+    )
 
-# unitary gate synthesis
-unitary_jax = unitary._replace(
-    objectives=[Objective(initial_U, H_jax, target_U)],
-    algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
-)
+    # unitary gate synthesis
+    unitary_jax = unitary._replace(
+        objectives=[Objective(initial_U, H_jax, target_U)],
+        algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
+    )
 
-# unitary gate synthesis - time optimization
-time_jax = time._replace(
-    objectives=[Objective(initial_U, H_jax, target_U)],
-    algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
-)
+    # unitary gate synthesis - time optimization
+    time_jax = time._replace(
+        objectives=[Objective(initial_U, H_jax, target_U)],
+        algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.01},
+    )
 
-# map synthesis
-Lc_jax = [
-    [qt.liouvillian(qt.sigmax()), lambda t, p: sin_jax(t, p)],
-    [qt.liouvillian(qt.sigmay()), lambda t, q: sin_jax(t, q)],
-]
-L_jax = L_d + Lc_jax
+    # map synthesis
+    Lc_jax = [
+        [qt.liouvillian(qt.sigmax()), lambda t, p: sin_jax(t, p)],
+        [qt.liouvillian(qt.sigmay()), lambda t, q: sin_jax(t, q)],
+    ]
+    L_jax = L_d + Lc_jax
 
-mapping_jax = mapping._replace(
-    objectives=[Objective(initial_map, L_jax, target_map)],
-    algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.1},  # relaxed objective
-)
+    mapping_jax = mapping._replace(
+        objectives=[Objective(initial_map, L_jax, target_map)],
+        algorithm_kwargs={"alg": "JOPT", "fid_err_targ": 0.1},  # relaxed objective
+    )
 
+else:
+    # jax not available, set these to none so tests will be skipped
+    state2state_jax = None
+    unitary_jax = None
+    time_jax = None
+    mapping_jax = None
 
 @pytest.fixture(
     params=[
@@ -205,6 +217,9 @@ def tst(request):
 
 
 def test_optimize_pulses(tst):
+    if tst is None:
+        pytest.skip("JAX not available")
+
     result = optimize_pulses(
         tst.objectives,
         tst.control_parameters,

@@ -26,6 +26,9 @@ To install the package, use
 pip install qutip-qoc
 ```
 
+By default, the dependencies required for JOPT and for the RL (reinforcement learning) algorithm are omitted.
+They can be included by using the targets `qutip-qoc[jopt]` and `qutip-qoc[rl]`, respectively (or `qutip-qoc[full]` for all dependencies).
+
 ## Documentation and tutorials
 
 The documentation of `qutip-qoc` updated to the latest development version is hosted at [qutip-qoc.readthedocs.io](https://qutip-qoc.readthedocs.io/en/latest/).
