@@ -198,6 +198,44 @@ unitary_rl = state2state_rl._replace(
     },
 )
 
+# --------------------------- Genetic ---------------------------
+
+# TODO: this is the input for optimiz_pulses() function
+# you can use this routine to test your implementation
+
+# state to state transfer
+init = qt.basis(2, 0)
+target = qt.basis(2, 1)
+
+H_c = [qt.sigmax(), qt.sigmay(), qt.sigmaz()] # control Hamiltonians
+
+w, d, y = 0.1, 1.0, 0.1
+H_d = 1 / 2 * (w * qt.sigmaz() + d * qt.sigmax()) # drift Hamiltonian
+
+H = [H_d] + H_c # total Hamiltonian
+
+state2state_genetic = Case(
+    objectives=[Objective(initial, H, target)],
+    control_parameters={"bounds": [-13, 13]}, # TODO: for now only consider bounds
+    tlist=np.linspace(0, 10, 100), # TODO: derive single step duration and max evo time / max num steps from this
+    algorithm_kwargs={
+        "fid_err_targ": 0.01,
+        "alg": "GENETIC",
+        "max_iter": 100,
+    },
+    optimizer_kwargs={},
+)
+
+# TODO: no big difference for unitary evolution
+
+initial = qt.qeye(2) # Identity
+target  = qt.gates.hadamard_transform()
+
+unitary_genetic = state2state_genetic._replace(
+    objectives=[Objective(initial, H, target)],
+)
+
+
 
 @pytest.fixture(
     params=[
@@ -207,6 +245,7 @@ unitary_rl = state2state_rl._replace(
         pytest.param(state2state_goat, id="State to state (GOAT)"),
         pytest.param(state2state_jax, id="State to state (JAX)"),
         pytest.param(state2state_rl, id="State to state (RL)"),
+        pytest.param(unitary_genetic, id="Unitary (Genetic)"),
         pytest.param(unitary_rl, id="Unitary (RL)"),
     ]
 )
